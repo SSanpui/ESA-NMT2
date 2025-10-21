@@ -7,8 +7,9 @@
 print("🚀 Generating Table 4: Comprehensive Comparison")
 print("="*60)
 
+from dataset_with_annotations import BHT25AnnotatedDataset  # ✅ FIXED dataset
 from emotion_semantic_nmt_enhanced import (
-    Config, BHT25Dataset, EmotionSemanticNMT,
+    Config, EmotionSemanticNMT,
     ComprehensiveEvaluator, Trainer
 )
 import torch
@@ -39,10 +40,10 @@ for pair in ['bn-hi', 'bn-te']:
         use_style=False      # ← NO style module
     ).to(device)
 
-    # Prepare data
-    train_dataset = BHT25Dataset('BHT25_All.csv', baseline_model.tokenizer, pair,
+    # Prepare data - use ANNOTATED dataset
+    train_dataset = BHT25AnnotatedDataset('BHT25_All.csv', baseline_model.tokenizer, pair,
                                 config.MAX_LENGTH, 'train', 'nllb')
-    test_dataset = BHT25Dataset('BHT25_All.csv', baseline_model.tokenizer, pair,
+    test_dataset = BHT25AnnotatedDataset('BHT25_All.csv', baseline_model.tokenizer, pair,
                                config.MAX_LENGTH, 'test', 'nllb')
 
     train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=0)
@@ -89,10 +90,10 @@ for pair in ['bn-hi', 'bn-te']:
         use_style=True      # ✅ WITH style module
     ).to(device)
 
-    # Prepare data
-    train_dataset = BHT25Dataset('BHT25_All.csv', proposed_model.tokenizer, pair,
+    # Prepare data - use ANNOTATED dataset
+    train_dataset = BHT25AnnotatedDataset('BHT25_All.csv', proposed_model.tokenizer, pair,
                                 config.MAX_LENGTH, 'train', 'nllb')
-    test_dataset = BHT25Dataset('BHT25_All.csv', proposed_model.tokenizer, pair,
+    test_dataset = BHT25AnnotatedDataset('BHT25_All.csv', proposed_model.tokenizer, pair,
                                config.MAX_LENGTH, 'test', 'nllb')
 
     train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=0)
