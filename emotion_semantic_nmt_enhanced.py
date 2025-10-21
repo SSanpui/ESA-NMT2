@@ -589,6 +589,24 @@ class ComprehensiveEvaluator:
         # Initialize scorers
         self.rouge_scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
+    @staticmethod
+    def convert_to_json_serializable(obj):
+        """Convert numpy types to Python types for JSON serialization"""
+        import numpy as np
+        if isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {key: ComprehensiveEvaluator.convert_to_json_serializable(value)
+                    for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [ComprehensiveEvaluator.convert_to_json_serializable(item) for item in obj]
+        else:
+            return obj
+
     def evaluate(self, dataloader: DataLoader) -> Dict[str, float]:
         """Comprehensive evaluation"""
         self.model.eval()
@@ -755,11 +773,11 @@ class HyperparameterTuner:
 
         # Save results
         with open(f"{config.OUTPUT_DIR}/hyperparameter_tuning_{translation_pair}.json", 'w') as f:
-            json.dump({
+            json.dump(ComprehensiveEvaluator.convert_to_json_serializable({
                 'results': self.results,
                 'best_params': best_params,
                 'best_score': best_score
-            }, f, indent=2)
+            }), f, indent=2)
 
         print(f"\n✅ Best params: {best_params} (score: {best_score:.2f})")
 
@@ -851,7 +869,7 @@ class AblationStudy:
     def save_results(self, translation_pair: str, model_type: str):
         """Save ablation results"""
         with open(f"{config.OUTPUT_DIR}/ablation_study_{model_type}_{translation_pair}.json", 'w') as f:
-            json.dump(self.results, f, indent=2)
+            json.dump(ComprehensiveEvaluator.convert_to_json_serializable(self.results), f, indent=2)
 
     def visualize_results(self, translation_pair: str, model_type: str):
         """Visualize ablation results"""
@@ -1060,7 +1078,7 @@ def compare_models(csv_path: str, translation_pair: str):
 
     # Save comparison results
     with open(f"{config.OUTPUT_DIR}/model_comparison_{translation_pair}.json", 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(ComprehensiveEvaluator.convert_to_json_serializable(results), f, indent=2)
 
     # Visualize comparison
     visualize_model_comparison(results, translation_pair)
