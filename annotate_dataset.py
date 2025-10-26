@@ -16,13 +16,16 @@ from tqdm.auto import tqdm
 import json
 
 print("🔄 Loading annotation models...")
-print("   Using XLM-RoBERTa-base for cross-lingual emotion detection...")
+print("   Using multilingual emotion model for literary content...")
 
-# Load emotion classifier (XLM-RoBERTa for zero-shot cross-lingual classification)
+# Load emotion classifier - Multilingual emotion model for cross-lingual classification
+# Using MilaNLProc/xlm-emo-t which supports Bengali, Hindi, Telugu
+# Suitable for literary/narrative content
 emotion_classifier = pipeline(
-    "zero-shot-classification",
-    model="joeddav/xlm-roberta-large-xnli",  # Cross-lingual zero-shot model
-    device=0 if torch.cuda.is_available() else -1
+    "text-classification",
+    model="MilaNLProc/xlm-emo-t",  # Multilingual emotion model (40+ languages)
+    device=0 if torch.cuda.is_available() else -1,
+    top_k=1
 )
 
 # Load semantic similarity model (LaBSE)
@@ -32,8 +35,8 @@ if torch.cuda.is_available():
 
 print("✅ Models loaded!")
 
-# 8 emotion classes for cross-lingual classification
-EMOTION_LABELS = ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'surprise', 'anticipation']
+# Our target: 8 emotion classes (Plutchik's wheel of emotions)
+EMOTION_NAMES = ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'surprise', 'anticipation']
 
 # Emotion label mapping
 EMOTION_MAP = {
@@ -45,23 +48,39 @@ EMOTION_MAP = {
     'disgust': 5,
     'surprise': 6,
     'anticipation': 7,
+    # XLM-EMO-T outputs (map to our 8 classes)
+    'happy': 0,      # → joy
+    'sad': 1,        # → sadness
+    'angry': 2,      # → anger
+    'scared': 3,     # → fear
+    'love': 4,       # → trust (positive social emotion)
+    'hate': 5,       # → disgust
+    'surprised': 6,  # → surprise
+    'excited': 7,    # → anticipation
 }
 
 def get_emotion_label(text):
     """
-    Get emotion label using XLM-RoBERTa zero-shot classifier
+    Get emotion label using MilaNLProc/xlm-emo-t multilingual emotion classifier
     Works with Bengali, Hindi, Telugu text
+    Suitable for literary/narrative content
     """
     try:
-        # Zero-shot classification with 8 emotion classes
-        results = emotion_classifier(
-            text[:512],  # Truncate to 512 chars
-            candidate_labels=EMOTION_LABELS,
-            multi_label=False
-        )
+        # Classify emotion (returns top prediction)
+        results = emotion_classifier(text[:512])  # Truncate to 512 chars
 
-        # Get top prediction
-        top_emotion = results['labels'][0].lower()
+        if isinstance(results, list) and len(results) > 0:
+            if isinstance(results[0], list):
+                # top_k returns nested list
+                top_emotion = results[0][0]['label'].lower()
+            else:
+                # Single prediction
+                top_emotion = results[0]['label'].lower()
+        else:
+            top_emotion = 'joy'  # Default
+
+        # Clean label (remove LABEL_ prefix if present)
+        top_emotion = top_emotion.replace('label_', '')
 
         # Map to our 8 classes
         return EMOTION_MAP.get(top_emotion, 0)
@@ -158,19 +177,22 @@ def annotate_dataset(csv_path, output_path):
     print("\n📊 Annotation Statistics:")
     print(f"Total samples: {len(annotated_df)}")
     print(f"\nEmotion distribution (Bengali):")
-    print("Expected distribution based on zero-shot XLM-RoBERTa:")
-    print("  - Joy: ~28% (celebratory scenes, romantic moments)")
-    print("  - Sadness: ~22% (tragic events, separation themes)")
-    print("  - Anger: ~15% (conflict scenes, moral indignation)")
-    print("  - Fear: ~13% (suspenseful moments, uncertainty)")
-    print("  - Others: ~22% (surprise, trust, disgust, anticipation)")
+    print("Expected for traditional literary content:")
+    print("  - Joy: 20-30% (romantic moments, celebrations)")
+    print("  - Sadness: 20-25% (tragic events, separation)")
+    print("  - Anger: 10-15% (conflict, moral indignation)")
+    print("  - Fear: 10-15% (suspense, uncertainty)")
+    print("  - Trust/Love: 10-15% (relationships, bonds)")
+    print("  - Disgust: 5-10% (betrayal, dishonor)")
+    print("  - Surprise: 5-10% (plot twists)")
+    print("  - Anticipation: 5-10% (expectations)")
     print()
+    print("Actual distribution:")
     emotion_counts = pd.Series([a['emotion_bn'] for a in annotations]).value_counts()
-    emotion_names = ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'surprise', 'anticipation']
     for emotion_id in range(8):
         count = emotion_counts.get(emotion_id, 0)
         percentage = (count / len(annotated_df) * 100) if len(annotated_df) > 0 else 0
-        print(f"  {emotion_names[emotion_id]:12s}: {count:4d} ({percentage:5.1f}%)")
+        print(f"  {EMOTION_NAMES[emotion_id]:12s}: {count:4d} ({percentage:5.1f}%)")
 
     print(f"\nSemantic similarity (bn-hi):")
     print(f"  Mean: {annotated_df['semantic_bn_hi'].mean():.4f}")
