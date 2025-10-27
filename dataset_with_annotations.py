@@ -147,6 +147,21 @@ class BHT25AnnotatedDataset(Dataset):
             return_tensors='pt'
         )
 
+        # ✅ FIX: Validate token IDs are within vocabulary range
+        vocab_size = self.tokenizer.vocab_size
+        source_max = source_tokens['input_ids'].max().item()
+        target_max = target_tokens['input_ids'].max().item()
+
+        if source_max >= vocab_size:
+            print(f"⚠️ WARNING at idx {idx}: Source token ID {source_max} >= vocab_size {vocab_size}")
+            print(f"   Source text: {source_text[:50]}...")
+            source_tokens['input_ids'] = torch.clamp(source_tokens['input_ids'], 0, vocab_size - 1)
+
+        if target_max >= vocab_size:
+            print(f"⚠️ WARNING at idx {idx}: Target token ID {target_max} >= vocab_size {vocab_size}")
+            print(f"   Target text: {target_text[:50]}...")
+            target_tokens['input_ids'] = torch.clamp(target_tokens['input_ids'], 0, vocab_size - 1)
+
         # Use PRE-COMPUTED annotations (NOT random!)
         emotion_label = item['emotion_label']  # ← Real annotation
         semantic_score = item['semantic_score']  # ← Real semantic similarity
