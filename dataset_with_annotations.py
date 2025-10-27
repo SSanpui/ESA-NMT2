@@ -27,8 +27,13 @@ class BHT25AnnotatedDataset(Dataset):
     def load_annotated_data(self, csv_path: str) -> List[Dict]:
         """Load pre-annotated BHT25 data"""
 
-        # Check if annotated version exists
-        annotated_path = csv_path.replace('.csv', '_annotated.csv')
+        # Check if already annotated or need to add _annotated suffix
+        if csv_path.endswith('_annotated.csv'):
+            # Already annotated file path
+            annotated_path = csv_path
+        else:
+            # Add _annotated suffix
+            annotated_path = csv_path.replace('.csv', '_annotated.csv')
 
         try:
             df = pd.read_csv(annotated_path)
@@ -63,6 +68,12 @@ class BHT25AnnotatedDataset(Dataset):
 
             # Get PRE-COMPUTED annotations
             emotion_label = int(row['emotion_bn'])  # Use Bengali emotion
+
+            # VALIDATE emotion label is in valid range (0-3 for 4 emotions)
+            if emotion_label < 0 or emotion_label > 3:
+                print(f"⚠️ WARNING: Invalid emotion label {emotion_label} at index {idx}")
+                print(f"   Clamping to valid range [0-3]")
+                emotion_label = max(0, min(3, emotion_label))  # Clamp to 0-3
 
             # Get semantic score based on pair
             if self.translation_pair == 'bn-hi':

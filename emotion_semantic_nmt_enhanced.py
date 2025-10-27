@@ -1217,6 +1217,95 @@ translation = tokenizer.decode(outputs[0], skip_special_tokens=True)
 # 12. MAIN EXECUTION
 # ============================================================================
 
+# ============================================================================
+# PROGRAMMATIC API (for Colab notebook)
+# ============================================================================
+
+def full_training_pipeline(csv_path: str, translation_pair: str, model_type: str = 'nllb'):
+    """
+    Full training pipeline - can be called from notebook without interactive input
+
+    Args:
+        csv_path: Path to dataset CSV
+        translation_pair: 'bn-hi' or 'bn-te'
+        model_type: 'nllb' or 'indictrans2'
+    """
+    from dataset_with_annotations import BHT25AnnotatedDataset
+
+    print(f"\n🚀 Starting Full Training Pipeline")
+    print(f"   Translation: {translation_pair}")
+    print(f"   Model: {model_type}")
+    print(f"   Epochs: {config.EPOCHS['phase1']}")
+    print("="*60)
+
+    # Create model
+    print("\n1️⃣ Creating model...")
+    model = EmotionSemanticNMT(config, model_type=model_type).to(device)
+    print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    # Load ANNOTATED dataset
+    print("\n2️⃣ Loading annotated dataset...")
+    train_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
+                                config.MAX_LENGTH, 'train', model_type)
+    val_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
+                              config.MAX_LENGTH, 'val', model_type)
+
+    train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=0)
+
+    print(f"   Train: {len(train_dataset)} samples")
+    print(f"   Val: {len(val_dataset)} samples")
+
+    # Train
+    print(f"\n3️⃣ Training for {config.EPOCHS['phase1']} epochs...")
+    trainer = Trainer(model, config, translation_pair)
+
+    for epoch in range(config.EPOCHS['phase1']):
+        print(f"\n--- Epoch {epoch+1}/{config.EPOCHS['phase1']} ---")
+        train_loss = trainer.train_epoch(train_loader, epoch)
+        print(f"Train Loss: {train_loss:.4f}")
+
+        # Evaluate
+        if (epoch + 1) % 1 == 0:
+            evaluator = ComprehensiveEvaluator(model, model.tokenizer, config, translation_pair)
+            metrics, _, _, _ = evaluator.evaluate(val_loader)
+            print(f"Validation - BLEU: {metrics['bleu']:.2f}, chrF: {metrics['chrf']:.2f}, "
+                  f"Emotion Acc: {metrics.get('emotion_accuracy', 0):.2f}%")
+
+    # Final evaluation
+    print("\n4️⃣ Final Evaluation...")
+    evaluator = ComprehensiveEvaluator(model, model.tokenizer, config, translation_pair)
+    metrics, preds, refs, sources = evaluator.evaluate(val_loader)
+
+    print("\n📊 Final Results:")
+    print("="*60)
+    for key, value in metrics.items():
+        if isinstance(value, float):
+            print(f"   {key:20s}: {value:.4f}")
+        else:
+            print(f"   {key:20s}: {value}")
+
+    # Save model
+    print("\n5️⃣ Saving model...")
+    checkpoint_path = f"{config.CHECKPOINT_DIR}/final_model_{model_type}_{translation_pair}.pt"
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'config': config,
+        'metrics': metrics
+    }, checkpoint_path)
+    print(f"   Model saved: {checkpoint_path}")
+
+    # Save results
+    results_path = f"{config.OUTPUT_DIR}/full_training_results_{model_type}_{translation_pair}.json"
+    with open(results_path, 'w') as f:
+        import json
+        json.dump(ComprehensiveEvaluator.convert_to_json_serializable(metrics), f, indent=2)
+    print(f"   Results saved: {results_path}")
+
+    print("\n✅ Full training completed!")
+    return metrics
+
+
 def main():
     """Main execution function"""
     print("""
