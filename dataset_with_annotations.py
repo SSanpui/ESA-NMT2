@@ -69,6 +69,12 @@ class BHT25AnnotatedDataset(Dataset):
             # Get PRE-COMPUTED annotations
             emotion_label = int(row['emotion_bn'])  # Use Bengali emotion
 
+            # VALIDATE emotion label is in valid range (0-3 for 4 emotions)
+            if emotion_label < 0 or emotion_label > 3:
+                print(f"⚠️ WARNING: Invalid emotion label {emotion_label} at index {idx}")
+                print(f"   Clamping to valid range [0-3]")
+                emotion_label = max(0, min(3, emotion_label))  # Clamp to 0-3
+
             # Get semantic score based on pair
             if self.translation_pair == 'bn-hi':
                 semantic_score = float(row['semantic_bn_hi'])
