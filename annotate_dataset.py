@@ -35,28 +35,26 @@ if torch.cuda.is_available():
 
 print("✅ Models loaded!")
 
-# Our target: 8 emotion classes (Plutchik's wheel of emotions)
-EMOTION_NAMES = ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'surprise', 'anticipation']
+# Our target: 4 emotion classes (MilaNLProc/xlm-emo-t outputs)
+# Based on basic emotion theory (joy, sadness, anger, fear)
+EMOTION_NAMES = ['joy', 'sadness', 'anger', 'fear']
 
-# Emotion label mapping
+# Emotion label mapping for MilaNLProc/xlm-emo-t
 EMOTION_MAP = {
     'joy': 0,
     'sadness': 1,
     'anger': 2,
     'fear': 3,
-    'trust': 4,
-    'disgust': 5,
-    'surprise': 6,
-    'anticipation': 7,
-    # XLM-EMO-T outputs (map to our 8 classes)
+    # Alternative labels that might appear
     'happy': 0,      # → joy
+    'happiness': 0,  # → joy
     'sad': 1,        # → sadness
+    'sorrow': 1,     # → sadness
     'angry': 2,      # → anger
+    'rage': 2,       # → anger
     'scared': 3,     # → fear
-    'love': 4,       # → trust (positive social emotion)
-    'hate': 5,       # → disgust
-    'surprised': 6,  # → surprise
-    'excited': 7,    # → anticipation
+    'afraid': 3,     # → fear
+    'anxiety': 3,    # → fear
 }
 
 def get_emotion_label(text):
@@ -177,19 +175,16 @@ def annotate_dataset(csv_path, output_path):
     print("\n📊 Annotation Statistics:")
     print(f"Total samples: {len(annotated_df)}")
     print(f"\nEmotion distribution (Bengali):")
+    print("MilaNLProc/xlm-emo-t outputs 4 primary emotions:")
     print("Expected for traditional literary content:")
-    print("  - Joy: 20-30% (romantic moments, celebrations)")
-    print("  - Sadness: 20-25% (tragic events, separation)")
-    print("  - Anger: 10-15% (conflict, moral indignation)")
-    print("  - Fear: 10-15% (suspense, uncertainty)")
-    print("  - Trust/Love: 10-15% (relationships, bonds)")
-    print("  - Disgust: 5-10% (betrayal, dishonor)")
-    print("  - Surprise: 5-10% (plot twists)")
-    print("  - Anticipation: 5-10% (expectations)")
+    print("  - Joy: 30-40% (romantic moments, celebrations, happy endings)")
+    print("  - Sadness: 20-30% (tragic events, separation, loss)")
+    print("  - Anger: 15-25% (conflict, moral indignation, injustice)")
+    print("  - Fear: 15-25% (suspense, uncertainty, danger)")
     print()
     print("Actual distribution:")
     emotion_counts = pd.Series([a['emotion_bn'] for a in annotations]).value_counts()
-    for emotion_id in range(8):
+    for emotion_id in range(4):  # Only 4 emotions now
         count = emotion_counts.get(emotion_id, 0)
         percentage = (count / len(annotated_df) * 100) if len(annotated_df) > 0 else 0
         print(f"  {EMOTION_NAMES[emotion_id]:12s}: {count:4d} ({percentage:5.1f}%)")
