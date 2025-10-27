@@ -94,7 +94,7 @@ class Config:
 
     # Architecture parameters
     HIDDEN_SIZE = 1024
-    NUM_EMOTIONS = 8
+    NUM_EMOTIONS = 4  # joy, sadness, anger, fear (MilaNLProc/xlm-emo-t outputs)
     PROJECTION_DIM = 256
     NUM_STYLE_TYPES = 6
 

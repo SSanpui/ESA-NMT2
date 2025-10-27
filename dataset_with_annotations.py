@@ -89,9 +89,9 @@ class BHT25AnnotatedDataset(Dataset):
         emotions = [d['emotion_label'] for d in data]
         semantics = [d['semantic_score'] for d in data]
 
-        emotion_names = ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'surprise', 'anticipation']
+        emotion_names = ['joy', 'sadness', 'anger', 'fear']  # MilaNLProc/xlm-emo-t outputs 4 emotions
         print(f"Emotion distribution:")
-        for i in range(8):
+        for i in range(4):
             count = emotions.count(i)
             pct = count / len(emotions) * 100 if len(emotions) > 0 else 0
             print(f"  {emotion_names[i]:12s}: {count:4d} ({pct:5.1f}%)")
