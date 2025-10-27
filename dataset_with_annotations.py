@@ -27,8 +27,13 @@ class BHT25AnnotatedDataset(Dataset):
     def load_annotated_data(self, csv_path: str) -> List[Dict]:
         """Load pre-annotated BHT25 data"""
 
-        # Check if annotated version exists
-        annotated_path = csv_path.replace('.csv', '_annotated.csv')
+        # Check if already annotated or need to add _annotated suffix
+        if csv_path.endswith('_annotated.csv'):
+            # Already annotated file path
+            annotated_path = csv_path
+        else:
+            # Add _annotated suffix
+            annotated_path = csv_path.replace('.csv', '_annotated.csv')
 
         try:
             df = pd.read_csv(annotated_path)
