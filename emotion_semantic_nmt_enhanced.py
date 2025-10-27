@@ -521,12 +521,26 @@ class EmotionSemanticNMT(nn.Module):
 
         if target_input_ids is not None:
             # Training mode
+
+            # ✅ FIX: Prepare labels with proper masking
+            # Mask padding positions with -100 so they're ignored in loss computation
+            labels = target_input_ids[:, 1:].contiguous()
+
+            # Mask padding tokens based on attention mask
+            if target_attention_mask is not None:
+                labels_attention = target_attention_mask[:, 1:]
+                labels = labels.masked_fill(labels_attention == 0, -100)
+
+            # Also explicitly mask pad_token_id (safety check)
+            if self.tokenizer.pad_token_id is not None:
+                labels = labels.masked_fill(labels == self.tokenizer.pad_token_id, -100)
+
             outputs = self.base_model(
                 input_ids=source_input_ids,
                 attention_mask=source_attention_mask,
                 decoder_input_ids=target_input_ids[:, :-1],
                 decoder_attention_mask=target_attention_mask[:, :-1] if target_attention_mask is not None else None,
-                labels=target_input_ids[:, 1:].contiguous(),
+                labels=labels,  # ← Use properly masked labels
                 output_hidden_states=True
             )
 
