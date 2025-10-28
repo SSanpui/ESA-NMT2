@@ -843,10 +843,11 @@ class AblationStudy:
                 use_style=conf['style']
             ).to(device)
 
-            # Create datasets
-            train_dataset = BHT25Dataset(csv_path, model.tokenizer, translation_pair,
+            # Create datasets - USE ANNOTATED for all configs (fair comparison)
+            from dataset_with_annotations import BHT25AnnotatedDataset
+            train_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
                                         config.MAX_LENGTH, 'train', model_type)
-            val_dataset = BHT25Dataset(csv_path, model.tokenizer, translation_pair,
+            val_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
                                       config.MAX_LENGTH, 'val', model_type)
 
             train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
