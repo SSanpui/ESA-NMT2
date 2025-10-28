@@ -818,12 +818,15 @@ class AblationStudy:
         print(f"🔬 Running ablation study for {translation_pair} with {model_type}...")
 
         configurations = [
+            # Required by reviewers
+            {'name': 'Baseline (No Components)', 'emotion': False, 'semantic': False, 'style': False},
+            {'name': 'Emotion Only', 'emotion': True, 'semantic': False, 'style': False},
+            {'name': 'Semantic Only', 'emotion': False, 'semantic': True, 'style': False},  # ← ADDED for reviewer
             {'name': 'Full Model', 'emotion': True, 'semantic': True, 'style': True},
+            # Additional analysis (optional but useful)
             {'name': 'No Emotion', 'emotion': False, 'semantic': True, 'style': True},
             {'name': 'No Semantic', 'emotion': True, 'semantic': False, 'style': True},
             {'name': 'No Style', 'emotion': True, 'semantic': True, 'style': False},
-            {'name': 'Emotion Only', 'emotion': True, 'semantic': False, 'style': False},
-            {'name': 'Baseline (No Components)', 'emotion': False, 'semantic': False, 'style': False},
         ]
 
         for conf in configurations:
@@ -840,10 +843,11 @@ class AblationStudy:
                 use_style=conf['style']
             ).to(device)
 
-            # Create datasets
-            train_dataset = BHT25Dataset(csv_path, model.tokenizer, translation_pair,
+            # Create datasets - USE ANNOTATED for all configs (fair comparison)
+            from dataset_with_annotations import BHT25AnnotatedDataset
+            train_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
                                         config.MAX_LENGTH, 'train', model_type)
-            val_dataset = BHT25Dataset(csv_path, model.tokenizer, translation_pair,
+            val_dataset = BHT25AnnotatedDataset(csv_path, model.tokenizer, translation_pair,
                                       config.MAX_LENGTH, 'val', model_type)
 
             train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
@@ -935,6 +939,72 @@ class AblationStudy:
         plt.show()
 
         print(f"✅ Ablation study visualization saved!")
+
+# ============================================================================
+# 8B. INDICTRANS2 BASELINE EVALUATION
+# ============================================================================
+
+def evaluate_indictrans2_baseline(csv_path: str, translation_pair: str):
+    """
+    Evaluate pre-trained IndicTrans2 as baseline (no training, just evaluation)
+    For reviewer comparison: NLLB vs Your Model vs IndicTrans2
+    """
+    print(f"\n{'='*60}")
+    print(f"IndicTrans2 Baseline Evaluation: {translation_pair}")
+    print(f"{'='*60}\n")
+
+    try:
+        # Load pre-trained IndicTrans2 (no custom modules)
+        print("📥 Loading pre-trained IndicTrans2...")
+        model = EmotionSemanticNMT(
+            config,
+            model_type='indictrans2',
+            use_emotion=False,  # No custom modules for baseline
+            use_semantic=False,
+            use_style=False
+        ).to(device)
+
+        print("✅ IndicTrans2 loaded")
+
+        # Load test dataset
+        from dataset_with_annotations import BHT25AnnotatedDataset
+        test_dataset = BHT25AnnotatedDataset(
+            csv_path,
+            model.tokenizer,
+            translation_pair,
+            config.MAX_LENGTH,
+            'test',  # Use test split
+            'indictrans2'
+        )
+
+        from torch.utils.data import DataLoader
+        test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, shuffle=False)
+
+        print(f"📊 Evaluating on {len(test_dataset)} test samples...")
+
+        # Evaluate
+        evaluator = ComprehensiveEvaluator(model, model.tokenizer, config, translation_pair)
+        metrics, preds, refs, sources = evaluator.evaluate(test_loader)
+
+        # Save results
+        results_file = f"{config.OUTPUT_DIR}/indictrans2_baseline_{translation_pair}.json"
+        with open(results_file, 'w') as f:
+            json.dump(ComprehensiveEvaluator.convert_to_json_serializable(metrics), f, indent=2)
+
+        print(f"\n{'='*60}")
+        print(f"IndicTrans2 Baseline Results:")
+        print(f"{'='*60}")
+        print(f"  BLEU:    {metrics['bleu']:.2f}")
+        print(f"  chrF:    {metrics['chrf']:.2f}")
+        print(f"  ROUGE-L: {metrics['rouge_l']:.2f}")
+        print(f"\n💾 Saved to: {results_file}")
+
+        return metrics
+
+    except Exception as e:
+        print(f"⚠️ IndicTrans2 evaluation failed: {e}")
+        print("This is optional - you can skip if IndicTrans2 not available")
+        return None
 
 # ============================================================================
 # 9. TRAINER
