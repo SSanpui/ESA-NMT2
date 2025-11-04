@@ -49,9 +49,11 @@ print(f"\nTranslation pair: {TRANSLATION_PAIR}")
 print(f"Device: {device}")
 
 # Find ESA-NMT full model checkpoint
+# AFTER RETRAINING: Update this path to your new checkpoint!
 checkpoint_paths = [
-    f'/kaggle/working/model_{TRANSLATION_PAIR}.pt',
-    f'./checkpoints/final_model_nllb_{TRANSLATION_PAIR}.pt'
+    f'./checkpoints/final_esa_nmt_{TRANSLATION_PAIR}.pt',  # ← NEW retrained model
+    f'/kaggle/working/model_{TRANSLATION_PAIR}.pt',        # Old location
+    f'./checkpoints/final_model_nllb_{TRANSLATION_PAIR}.pt'  # Old name
 ]
 
 full_model_checkpoint = None
@@ -63,8 +65,9 @@ for path in checkpoint_paths:
 
 if not full_model_checkpoint:
     print("\n⚠️ WARNING: ESA-NMT full model checkpoint not found!")
-    print("   Full model will use untrained weights")
-    print("   Results may not show full potential")
+    print("   Full model will use pre-trained NLLB weights only")
+    print("   Results may not show improvement")
+    print("\n   💡 Run retrain_with_fixed_code.py first to train the model!")
 
 # =============================================================================
 # ABLATION CONFIGURATIONS
