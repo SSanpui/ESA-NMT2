@@ -611,13 +611,16 @@ class EmotionSemanticNMT(nn.Module):
             )
 
             # Now generate using enhanced encoder outputs
+            # Optimized for literary translation
             return self.base_model.generate(
                 encoder_outputs=enhanced_encoder_outputs_obj,
                 attention_mask=source_attention_mask,
                 max_length=self.config.MAX_LENGTH,
-                num_beams=4,
+                num_beams=5,  # Increased for better quality
                 early_stopping=True,
-                do_sample=False
+                do_sample=False,
+                length_penalty=1.0,  # Balanced length
+                no_repeat_ngram_size=3  # Avoid repetition
             )
 
 # ============================================================================
@@ -731,14 +734,17 @@ class ComprehensiveEvaluator:
                     )
 
                     # Generate using enhanced encoder outputs
+                    # Optimized for literary translation: diverse outputs, natural length
                     generated_ids = self.model.base_model.generate(
                         encoder_outputs=enhanced_encoder_outputs_obj,
                         attention_mask=batch['source_attention_mask'],
                         forced_bos_token_id=tgt_token_id if tgt_token_id != self.tokenizer.unk_token_id else None,
                         max_length=self.config.MAX_LENGTH,
-                        num_beams=4,
+                        num_beams=5,  # Increased from 4 for better quality
                         early_stopping=True,
                         do_sample=False,
+                        length_penalty=1.0,  # Balanced length (not too short/long)
+                        no_repeat_ngram_size=3,  # Avoid repetition (common in literary text)
                         pad_token_id=self.tokenizer.pad_token_id
                     )
 
