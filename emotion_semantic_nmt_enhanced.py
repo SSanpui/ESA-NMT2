@@ -27,7 +27,9 @@ from torch.optim import AdamW
 from transformers import (
     AutoTokenizer,
     AutoModelForSeq2SeqLM,
-    get_linear_schedule_with_warmup
+    get_linear_schedule_with_warmup,
+    LogitsProcessor,
+    LogitsProcessorList
 )
 from sentence_transformers import SentenceTransformer
 import pandas as pd
@@ -112,10 +114,10 @@ class Config:
         'phase3': 2
     }
 
-    # Default loss weights (will be tuned)
+    # Default loss weights (optimized for literary translation)
     ALPHA = 1.0   # Translation loss
-    BETA = 0.3    # Emotion loss
-    GAMMA = 0.2   # Semantic loss
+    BETA = 0.4    # Emotion loss (increased for better emotion consistency)
+    GAMMA = 0.5   # Semantic loss (INCREASED - critical for literary meaning preservation)
     DELTA = 0.1   # Style loss
 
     # Hyperparameter tuning ranges
@@ -577,9 +579,40 @@ class EmotionSemanticNMT(nn.Module):
                 'semantic_similarity': semantic_similarity
             }
         else:
-            # Inference mode
-            return self.base_model.generate(
+            # Inference mode - ENHANCED with emotion/semantic
+            # First, encode the source with emotion/semantic modules
+            encoder_outputs_dict = self.base_model.get_encoder()(
                 input_ids=source_input_ids,
+                attention_mask=source_attention_mask,
+                return_dict=True
+            )
+
+            # Get encoder hidden states
+            enhanced_encoder_outputs = encoder_outputs_dict.last_hidden_state
+
+            # Apply emotion module to enhance encoder outputs
+            if self.use_emotion:
+                enhanced_encoder_outputs, _, _ = self.emotion_module(
+                    enhanced_encoder_outputs, source_attention_mask
+                )
+
+            # Apply style adapter
+            if self.use_style:
+                enhanced_encoder_outputs, _ = self.style_adapter(
+                    enhanced_encoder_outputs, source_attention_mask
+                )
+
+            # Create enhanced encoder outputs object
+            from transformers.modeling_outputs import BaseModelOutput
+            enhanced_encoder_outputs_obj = BaseModelOutput(
+                last_hidden_state=enhanced_encoder_outputs,
+                hidden_states=encoder_outputs_dict.hidden_states,
+                attentions=encoder_outputs_dict.attentions
+            )
+
+            # Now generate using enhanced encoder outputs
+            return self.base_model.generate(
+                encoder_outputs=enhanced_encoder_outputs_obj,
                 attention_mask=source_attention_mask,
                 max_length=self.config.MAX_LENGTH,
                 num_beams=4,
@@ -664,11 +697,42 @@ class ComprehensiveEvaluator:
                 if outputs['semantic_similarity'] is not None:
                     all_semantic_scores.extend(outputs['semantic_similarity'].cpu().numpy())
 
-                # Generate translations
+                # Generate translations - USE ENHANCED MODEL
                 try:
                     tgt_token_id = self.tokenizer.convert_tokens_to_ids(tgt_lang_code)
-                    generated_ids = self.model.base_model.generate(
+
+                    # Get enhanced encoder outputs with emotion/semantic modules
+                    encoder_outputs_dict = self.model.base_model.get_encoder()(
                         input_ids=batch['source_input_ids'],
+                        attention_mask=batch['source_attention_mask'],
+                        return_dict=True
+                    )
+
+                    enhanced_encoder_outputs = encoder_outputs_dict.last_hidden_state
+
+                    # Apply emotion module if enabled
+                    if self.model.use_emotion:
+                        enhanced_encoder_outputs, _, _ = self.model.emotion_module(
+                            enhanced_encoder_outputs, batch['source_attention_mask']
+                        )
+
+                    # Apply style adapter if enabled
+                    if self.model.use_style:
+                        enhanced_encoder_outputs, _ = self.model.style_adapter(
+                            enhanced_encoder_outputs, batch['source_attention_mask']
+                        )
+
+                    # Create enhanced encoder outputs object
+                    from transformers.modeling_outputs import BaseModelOutput
+                    enhanced_encoder_outputs_obj = BaseModelOutput(
+                        last_hidden_state=enhanced_encoder_outputs,
+                        hidden_states=encoder_outputs_dict.hidden_states,
+                        attentions=encoder_outputs_dict.attentions
+                    )
+
+                    # Generate using enhanced encoder outputs
+                    generated_ids = self.model.base_model.generate(
+                        encoder_outputs=enhanced_encoder_outputs_obj,
                         attention_mask=batch['source_attention_mask'],
                         forced_bos_token_id=tgt_token_id if tgt_token_id != self.tokenizer.unk_token_id else None,
                         max_length=self.config.MAX_LENGTH,
@@ -720,9 +784,33 @@ class ComprehensiveEvaluator:
         if len(all_emotion_preds) > 0:
             metrics['emotion_accuracy'] = accuracy_score(all_emotion_labels, all_emotion_preds) * 100
 
-        # Semantic score
-        if len(all_semantic_scores) > 0:
-            metrics['semantic_score'] = np.mean(all_semantic_scores)
+        # Semantic score - COMPUTE FROM GENERATED TRANSLATIONS
+        # Use LaBSE to compute semantic similarity between source and generated translations
+        if len(all_predictions) > 0 and len(all_source_texts) > 0:
+            try:
+                from sentence_transformers import SentenceTransformer
+                labse_model = SentenceTransformer('sentence-transformers/LaBSE')
+
+                # Compute embeddings for source and predictions
+                source_embeddings = labse_model.encode(all_source_texts, convert_to_numpy=True, show_progress_bar=False)
+                pred_embeddings = labse_model.encode(all_predictions, convert_to_numpy=True, show_progress_bar=False)
+
+                # Compute cosine similarity
+                semantic_similarities = []
+                for src_emb, pred_emb in zip(source_embeddings, pred_embeddings):
+                    similarity = np.dot(src_emb, pred_emb) / (np.linalg.norm(src_emb) * np.linalg.norm(pred_emb))
+                    semantic_similarities.append(similarity)
+
+                metrics['semantic_score'] = np.mean(semantic_similarities)
+
+                # Clean up
+                del labse_model
+                torch.cuda.empty_cache()
+            except Exception as e:
+                print(f"Warning: Could not compute semantic score: {e}")
+                metrics['semantic_score'] = 0.0
+        else:
+            metrics['semantic_score'] = 0.0
 
         # Loss
         metrics['avg_loss'] = total_loss / len(dataloader)
