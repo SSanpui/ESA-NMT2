@@ -141,7 +141,7 @@ def evaluate_config(config_info, translation_pair):
         # Load test dataset
         print("Loading test dataset...")
         test_dataset = BHT25AnnotatedDataset(
-            'BHT25_All.csv',
+            'BHT25_All_annotated.csv',  # Using annotated dataset
             model.tokenizer,
             translation_pair,
             config.MAX_LENGTH,
