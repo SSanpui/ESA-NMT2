@@ -24,7 +24,7 @@ print("""
 """)
 
 # Configuration
-TRANSLATION_PAIR = 'bn-hi'  # Change to 'bn-te' for Bengali-Telugu
+TRANSLATION_PAIR = 'bn-te'  # Change to 'bn-hi' for Bengali-Hindi
 CSV_PATH = 'BHT25_All_annotated.csv'  # Your annotated dataset
 print(f"\n📋 Configuration:")
 print(f"   Translation pair: {TRANSLATION_PAIR}")
