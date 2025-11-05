@@ -43,7 +43,7 @@ print("="*80)
 # CONFIGURATION
 # =============================================================================
 
-TRANSLATION_PAIR = 'bn-te'  # Change to 'bn-te' for Telugu
+TRANSLATION_PAIR = 'bn-te'  # Change to 'bn-hi' for Hindi
 
 print(f"\nTranslation pair: {TRANSLATION_PAIR}")
 print(f"Device: {device}")
