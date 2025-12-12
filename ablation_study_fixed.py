@@ -14,8 +14,6 @@ FIXED: ROUGE-L now correctly returns values between 0-100 (as percentage)
 """
 
 import os
-os.chdir('/kaggle/working/ESA-NMT')
-
 import torch
 import gc
 import json
@@ -45,7 +43,7 @@ print("="*80)
 # CONFIGURATION
 # =============================================================================
 
-TRANSLATION_PAIR = 'bn-hi'  # Change to 'bn-te' for Telugu
+TRANSLATION_PAIR = 'hi-te'  # Hindi to Telugu translation pair
 
 print(f"\nTranslation pair: {TRANSLATION_PAIR}")
 print(f"Device: {device}")
@@ -302,11 +300,6 @@ with open(output_file, 'w') as f:
 
 print(f"💾 Saved: {output_file}")
 
-# Copy to /kaggle/working
-import shutil
-shutil.copy(output_file, f'/kaggle/working/ablation_study_{TRANSLATION_PAIR}_fixed.json')
-print(f"💾 Copied to: /kaggle/working/ablation_study_{TRANSLATION_PAIR}_fixed.json")
-
 print("\n" + "="*80)
 print("✅ ABLATION STUDY COMPLETE!")
 print("="*80)
@@ -318,7 +311,7 @@ for name in results.keys():
 print(f"\n📥 Download this file:")
 print(f"   ablation_study_{TRANSLATION_PAIR}_fixed.json")
 
-print(f"\n⏭️ Next: Change TRANSLATION_PAIR to 'bn-te' (line 27) and run again for Telugu")
+print(f"\n✅ Ablation study completed for Hindi-Telugu pair")
 
 print("\n💡 Key Findings:")
 print("   The table above shows how each module contributes to performance")
