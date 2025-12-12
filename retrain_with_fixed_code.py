@@ -13,11 +13,11 @@ import json
 from datetime import datetime
 
 # Import from local modules
-from src.emotion_semantic_nmt_enhanced import (
+from emotion_semantic_nmt_enhanced import (
     Config, EmotionSemanticNMT, Trainer, ComprehensiveEvaluator,
     device, config
 )
-from src.dataset_with_annotations import BHT25AnnotatedDataset
+from dataset_with_annotations import BHT25AnnotatedDataset
 from torch.utils.data import DataLoader
 
 print("""

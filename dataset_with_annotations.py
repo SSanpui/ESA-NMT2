@@ -46,28 +46,32 @@ class BHT25AnnotatedDataset(Dataset):
         print(f"Dataset shape: {df.shape}")
         print(f"Columns: {df.columns.tolist()}")
 
-        # Check required columns
-        required_cols = ['bn', 'hi', 'te', 'emotion_bn', 'semantic_bn_hi', 'semantic_bn_te']
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"Missing column: {col}. Please re-run annotation script.")
-
-        # Get language pair
+        # Get language pair first
         from emotion_semantic_nmt_enhanced import config
         src_lang, tgt_lang = config.TRANSLATION_PAIRS[self.translation_pair]
+
+        # Check required columns based on translation pair
+        required_text_cols = ['bn', 'hi', 'te']
+        required_emotion_cols = [f'emotion_{src_lang}']
+        semantic_col = f'semantic_{src_lang}_{tgt_lang}'
+
+        for col in required_text_cols + required_emotion_cols + [semantic_col]:
+            if col not in df.columns:
+                raise ValueError(f"Missing column: {col}. Please re-run annotation script.")
 
         # Prepare data
         data = []
         for idx, row in df.iterrows():
-            source_text = str(row['bn']).strip()  # Always Bengali as source
+            source_text = str(row[src_lang]).strip()  # Use actual source language
             target_text = str(row[tgt_lang]).strip()
 
             # Skip empty
             if len(source_text) < 3 or len(target_text) < 3:
                 continue
 
-            # Get PRE-COMPUTED annotations
-            emotion_label = int(row['emotion_bn'])  # Use Bengali emotion
+            # Get PRE-COMPUTED annotations - use source language emotion
+            emotion_col = f'emotion_{src_lang}'
+            emotion_label = int(row[emotion_col])
 
             # VALIDATE emotion label is in valid range (0-3 for 4 emotions)
             if emotion_label < 0 or emotion_label > 3:
@@ -80,6 +84,8 @@ class BHT25AnnotatedDataset(Dataset):
                 semantic_score = float(row['semantic_bn_hi'])
             elif self.translation_pair == 'bn-te':
                 semantic_score = float(row['semantic_bn_te'])
+            elif self.translation_pair == 'hi-te':
+                semantic_score = float(row['semantic_hi_te'])
             else:
                 semantic_score = 0.85  # Fallback
 
